@@ -4,7 +4,7 @@
     
 -}
 {-# LANGUAGE NoMonomorphismRestriction #-}
-module MaxEnt.Deconvolution.Convolution2D where
+module Numeric.MaxEnt.Deconvolution.Convolution2D where
 import Numeric.Container (multiply)
 --import qualified Data.Packed.Vector as V
 import qualified Data.Packed.Matrix as M
@@ -13,7 +13,7 @@ import Data.Traversable
 import Prelude hiding (concat, fromInteger)
 import Data.Foldable
 import Control.Arrow ((***))
-import MaxEnt.Deconvolution.FocusedList
+import Numeric.MaxEnt.Deconvolution.FocusedList
 import Data.List.Split (chunksOf)
 
 -- 

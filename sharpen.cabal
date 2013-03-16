@@ -47,20 +47,20 @@ cabal-version:       >=1.12
 
 library
   -- Modules exported by the library.
-  exposed-modules:     MaxEnt.Deconvolution
+  exposed-modules:     Numeric.MaxEnt.Deconvolution
   
   -- Modules included in this library but not exported.
-  other-modules: MaxEnt.Deconvolution.Convolution2D, 
-                 MaxEnt.Deconvolution.FocusedList, 
-                 MaxEnt.Deconvolution.GaussianPSF, 
-                 MaxEnt.Deconvolution.Internal
+  other-modules: Numeric.MaxEnt.Deconvolution.Convolution2D, 
+                 Numeric.MaxEnt.Deconvolution.FocusedList, 
+                 Numeric.MaxEnt.Deconvolution.GaussianPSF, 
+                 Numeric.MaxEnt.Deconvolution.Internal
   
   -- Other library packages from which modules are imported.
   build-depends: base ==4.6.*, 
                  hmatrix ==0.14.*, 
                  split ==0.2.*, 
                  integration ==0.1.*, 
-                 maxent ==0.4.*, 
+                 maxent ==0.6.*, 
                  ad ==3.4.*, 
                  GaussQuadIntegration ==0.1.*,
                  repa ==3.2.*,
@@ -86,7 +86,7 @@ executable Sharpen
                  hmatrix ==0.14.*, 
                  split ==0.2.*, 
                  integration ==0.1.*, 
-                 maxent ==0.4.*, 
+                 maxent ==0.6.*, 
                  ad ==3.4.*, 
                  GaussQuadIntegration ==0.1.*,
                  repa ==3.2.*,

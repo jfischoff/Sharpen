@@ -1,15 +1,15 @@
 {-# LANGUAGE Rank2Types, FlexibleContexts #-}
-module MaxEnt.Deconvolution.Internal where
-import MaxEnt
+module Numeric.MaxEnt.Deconvolution.Internal where
+import Numeric.MaxEnt
 import Data.List.Split
 import Data.List
 import Debug.Trace
 import Numeric.Integration.TanhSinh
 import Numeric.AD
 import Control.Applicative
-import MaxEnt.Deconvolution.Convolution2D
+import Numeric.MaxEnt.Deconvolution.Convolution2D
 import Math.GaussianQuadratureIntegration
-import MaxEnt.Deconvolution.GaussianPSF
+import Numeric.MaxEnt.Deconvolution.GaussianPSF
 import Debug.Trace
 import Data.Word
 import Data.Array.Repa hiding ((++), map, transpose)
@@ -29,17 +29,8 @@ import Codec.Picture.Png
 import Codec.Picture.Types
 import Numeric
 import Unsafe.Coerce
+import qualified Data.Vector.Storable as S
 
--- think of the point spread function as answering the question
--- how much light does the a dot at pi give to a pixel at Ilambda?
-
--- TODO
--- This is basically working
--- and now for some intersting stuff
--- I think that first and foremost I need to get rid of 
--- ad if I can 
--- it is to much of a pain in the ass
--- If there is a good way to get the 
 
 traceIt x = trace (show x) x
 
@@ -48,40 +39,35 @@ traceItNote msg x = trace (msg ++ show x) x
 
 gaussianConvolve2D :: Double -> [[Double]] -> [[Double]]
 gaussianConvolve2D var xs = 
-    convolve2DZeroBoundary (sampleGaussian2D enumFromThenTo var width height) $ xs where
+    convolve2DZeroBoundary (sampleGaussian2D var width height) $ xs where
         width = length . head $ xs
         height = length xs
 
-makeShow :: Show b => a -> b
-makeShow = unsafeCoerce
-
-deconvolve2D :: (forall a. RealFloat a => [[a]]) -> [[Double]] -> Either String [[Double]]
+--deconvolve2D :: (forall a. RealFloat a => [[a]]) -> [[Double]] -> Either String [[Double]]
 deconvolve2D psf image = result where
-    convoPSF :: RealFloat a => [[a]]
     convoPSF = toConvolve2DZeroBoundary 0 psf 
     
     total = sum . concat $ image
     width = length . head $ image
 
-    normalizedImage :: RealFloat a => [a]
-    normalizedImage  =  map (fromRational . toRational) . normalize . concat $ image
+    normalizedImage  = normalize . concat $ image
     
     fromLinearImage = chunksOf width . map (total*)
     
     -- I think here I can 
-    result = case linear 0.0009 (LinearConstraints convoPSF normalizedImage) of
-        Right x -> Right $ fromLinearImage x
+    result = case linear 0.00001 (LC convoPSF normalizedImage) of
+        Right x -> Right $ fromLinearImage $ S.toList x
         Left x  -> Left $ show x
+    
+    --result = Right $ fromLinearImage $ last $ linear'' (LC convoPSF normalizedImage) :: Either String [[Double]]
 
-testPSF :: (RealFloat a) 
-        => [[a]]
-testPSF = map (map (fromRational . toRational)) $ 
-    gaussianPSF realFloatEnum 0.5 5 5
 
-gsamples :: (RealFloat a) 
-          => (a -> a -> a -> [a]) 
-          -> a -> Int -> Int -> [[a]]
-gsamples fromThenTo var width height = gaussianPSF fromThenTo var width height
+--testPSF :: (RealFloat a) 
+--       => [[a]]
+testPSF = gaussianPSF 0.5 5 5
+
+--          -> a -> Int -> Int -> [[a]]
+gsamples var width height = gaussianPSF var width height
 
 testInput :: [[Double]]
 testInput = [[0,0,0], [0.0, 1.0, 0.0], [0,0,0]]
@@ -111,7 +97,7 @@ testDecon = deconvolve2D testPSF $
 
 
 roundTrip :: Double -> [[Double]] -> Either String [[Double]]
-roundTrip var image = deconvolve2D (gsamples realFloatEnum (fromRational . toRational $ var) width height) $ 
+roundTrip var image = deconvolve2D (gsamples var width height) $ 
     (gaussianConvolve2D var image) where
         width = length . head $ image
         height = length image
@@ -124,16 +110,9 @@ toWord8 :: Double -> Word8
 toWord8 x = floor $ x * 256.0 
 
 
-testId ::  (forall a. RealFloat a => [[a]]) -> [[Double]] -> Either String [[Double]]
+--testId ::  (forall a. RealFloat a => [[a]]) -> [[Double]] -> Either String [[Double]]
 testId x y = Right y    
-    
 
-                    
-realFloatEnum :: RealFloat a => a -> a -> a -> [a]
-realFloatEnum x y z = map (fromRational . toRational) $
-    enumFromThenTo (fromRational . toRational $ x :: Double) 
-                   (fromRational . toRational $ y) 
-                   (fromRational . toRational $ z)
 
 
 getR (PixelRGBA8 x _ _ _) = x
@@ -144,19 +123,14 @@ toPixel x = [x, x, x, 255]
 --TODO make an image that matches the one above
 --make increasingly larger examples until I can find the smallest ont
 --that exhibits the problem
-deconvolve' :: (forall a . RealFloat a => (a, (a -> a -> a -> [a])))
-            -> Image Pixel8 -> Image Pixel8
-deconvolve' (var, fromThenTo) i@(Image width height dat) = result where
-
-    input :: [[Double]]
+deconvolve' :: Double -> Image Pixel8 -> Image Pixel8
+deconvolve' var i@(Image width height dat) = result where
     input = [[fromIntegral (pixelAt i w h) / 256.0 | 
         w <- [0..(width  - 1)]] | 
         h <- [0..(height - 1)]  ]
         
-    result = case deconvolve2D (map (map (fromRational . toRational)) $ 
-                      gsamples fromThenTo var width height) $ 
-                        input of
-        Right z -> Image width height $ VS.fromList $ concatMap (map toWord8) z 
+    result = case deconvolve2D (gsamples var width height) input of
+        Right z -> Image width height . VS.fromList $ concatMap (map toWord8) z 
         Left x  -> error $ show x
 
 -- The test that I should have, is
@@ -164,7 +138,6 @@ deconvolve' (var, fromThenTo) i@(Image width height dat) = result where
 -- and then unblur it
 blurImage :: Double -> Image Pixel8 -> Image Pixel8
 blurImage var i@(Image width height dat) = result where
-    input :: [[Double]]
     input = [[fromIntegral (pixelAt i w h) / 256.0 | 
         w <- [0..(width  - 1)]] | 
         h <- [0..(height - 1)]  ]
@@ -179,11 +152,11 @@ deconvolve var filePath = do
     pngBytes <- BS.readFile filePath 
     let image = either error id . decodePng $ pngBytes
         newImage = case image of
-            ImageY8 x -> deconvolve' (fromRational . toRational $ var, realFloatEnum) x
+            ImageY8 x -> deconvolve' var x
             x -> error $ "bad format"
     writePng outputPath newImage
  
-deconvolve2 ::     Double -> FilePath -> IO ()
+deconvolve2 :: Double -> FilePath -> IO ()
 deconvolve2 var filePath = do 
     let outputPath = basename %~ (++ "_decon") $ filePath
         blurPath   = basename %~ (++ "_blur") $ filePath
@@ -196,7 +169,7 @@ deconvolve2 var filePath = do
             let blurImaged = blurImage var x
             
             writePng blurPath blurImaged
-            return $ deconvolve' (fromRational . toRational $ var, realFloatEnum) blurImaged
+            return $ deconvolve' var blurImaged
         x -> error $ "bad format"
     writePng outputPath newImage
  

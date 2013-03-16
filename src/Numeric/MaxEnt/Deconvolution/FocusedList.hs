@@ -1,5 +1,5 @@
 {-# LANGUAGE RecordWildCards #-}
-module MaxEnt.Deconvolution.FocusedList where
+module Numeric.MaxEnt.Deconvolution.FocusedList where
 import Data.Foldable
 import Data.Maybe
 import Control.Applicative
