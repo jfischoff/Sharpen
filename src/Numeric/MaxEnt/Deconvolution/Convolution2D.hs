@@ -15,6 +15,7 @@ import Data.Foldable
 import Control.Arrow ((***))
 import Numeric.MaxEnt.Deconvolution.FocusedList
 import Data.List.Split (chunksOf)
+import Numeric.MaxEnt.Deconvolution.Iterative
 
 -- 
 -- It would be nice to have a phantom type for the matrix that 

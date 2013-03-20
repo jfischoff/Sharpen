@@ -1,5 +1,4 @@
 module Numeric.MaxEnt.Deconvolution.GaussianPSF where
-import Numeric.MaxEnt
 import Data.List.Split
 import Debug.Trace
 import Numeric.Integration.TanhSinh
@@ -47,6 +46,14 @@ computeSamples2D f (startx, starty) (endx, endy) widthSeg heightSeg =
         deltax = (endx - startx) / fromIntegral widthSeg
         deltay = (endy - starty) / fromIntegral heightSeg
 
+computeSamples2D' f (startx, starty) (endx, endy) widthSeg heightSeg = 
+    [ [deltax * deltay * (f (px + 0.5*deltax, py + 0.5*deltay))
+                | px <- [startx, (startx + deltax) .. (endx - deltax)]] 
+                | py <- [starty, (starty + deltay) .. (endy - deltay)]] where
+        deltax = (endx - startx) / fromIntegral widthSeg
+        deltay = (endy - starty) / fromIntegral heightSeg
+
+
 {-
 sampleGaussian2D :: (Floating a) 
                   => (a -> a -> a -> [a])
@@ -54,6 +61,11 @@ sampleGaussian2D :: (Floating a)
 -}
 sampleGaussian2D variance widthSeg heightSeg = 
     computeSamples2D (gaussian2D variance) 
+        (negate extent,negate extent) (extent, extent) widthSeg heightSeg where
+            extent = 1.0 --3 * (variance ** 0.5)
+
+sampleGaussian2D' variance widthSeg heightSeg = 
+    computeSamples2D' (gaussian2D variance) 
         (negate extent,negate extent) (extent, extent) widthSeg heightSeg where
             extent = 1.0 --3 * (variance ** 0.5)
 
@@ -79,7 +91,7 @@ gaussianPSF :: (Floating a)
 -}
 gaussianPSF variance wSeg hSeg = 
     chunksOf wSeg . normalize . concat . 
-        sampleGaussian2D variance wSeg $ hSeg
+        sampleGaussian2D' variance wSeg $ hSeg
 
 toCoord width i = (i `mod` width, i `div` width)
 

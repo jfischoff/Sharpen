@@ -68,7 +68,8 @@ library
                  lens ==3.8.*,
                  vector == 0.10.*,
                  JuicyPixels == 3.0.*,
-                 bytestring == 0.10.*
+                 bytestring == 0.10.*,
+                 transformers == 0.3.*
   
   -- Directories containing source files.
   hs-source-dirs:      src
@@ -87,17 +88,41 @@ executable Sharpen
                  split ==0.2.*, 
                  integration ==0.1.*, 
                  maxent ==0.6.*, 
-                 ad ==3.4.*, 
+                 ad  ==3.4.*, 
                  GaussQuadIntegration ==0.1.*,
                  repa ==3.2.*,
                  repa-devil ==0.3.*,
                  lens ==3.8.*,
                  vector == 0.10.*,
                  JuicyPixels == 3.0.*,
-                 bytestring == 0.10.*
+                 bytestring == 0.10.*,
+                 transformers == 0.3.*
 
   ghc-options: -Odph -rtsopts -fno-liberate-case -funfolding-use-threshold1000 -funfolding-keeness-factor1000 -fllvm -optlo-O3
-  --     -prof -fprof-auto
+      -prof -fprof-auto -threaded
+  default-language: Haskell2010
+  
+executable RepaSharpen
+  hs-source-dirs:      src
+  main-is: RepaSharpen.hs
+
+  build-depends: base ==4.6.*, 
+                 hmatrix ==0.14.*, 
+                 split ==0.2.*, 
+                 integration ==0.1.*, 
+                 maxent ==0.6.*, 
+                 ad  ==3.4.*, 
+                 repa ==3.2.*,
+                 repa-devil ==0.3.*,
+                 lens ==3.8.*,
+                 vector == 0.10.*,
+                 JuicyPixels == 3.0.*,
+                 bytestring == 0.10.*,
+                 transformers == 0.3.*,
+                 repa-io == 3.2.*
+
+  ghc-options: -Odph -rtsopts -fno-liberate-case -funfolding-use-threshold1000 -funfolding-keeness-factor1000 -fllvm -optlo-O3 -threaded
+  -- -prof -fprof-auto 
   default-language: Haskell2010
   
   

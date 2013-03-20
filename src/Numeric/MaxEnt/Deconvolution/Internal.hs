@@ -12,7 +12,7 @@ import Math.GaussianQuadratureIntegration
 import Numeric.MaxEnt.Deconvolution.GaussianPSF
 import Debug.Trace
 import Data.Word
-import Data.Array.Repa hiding ((++), map, transpose)
+import Data.Array.Repa hiding ((++), map, transpose, toList)
 import qualified Data.Array.Repa as R
 import qualified Data.Array.Repa.Eval as R
 import qualified Data.Array.Repa.Repr.ForeignPtr as R
@@ -30,6 +30,15 @@ import Codec.Picture.Types
 import Numeric
 import Unsafe.Coerce
 import qualified Data.Vector.Storable as S
+import Numeric.MaxEnt.Deconvolution.Iterative
+import Numeric.LinearAlgebra
+import Data.Packed.Matrix
+--import Numeric.MaxEnt.Deconvolution.IterativeRepa
+--import qualified Data.Array.Repa 			        as A
+--import qualified Data.Array.Repa.Repr.Unboxed   as U
+--import qualified Data.Array.Repa.Stencil		        as A
+--import qualified Data.Array.Repa.Stencil.Dim2	        as A
+--import Data.Functor.Identity
 
 
 traceIt x = trace (show x) x
@@ -43,28 +52,43 @@ gaussianConvolve2D var xs =
         width = length . head $ xs
         height = length xs
 
---deconvolve2D :: (forall a. RealFloat a => [[a]]) -> [[Double]] -> Either String [[Double]]
-deconvolve2D psf image = result where
+gaussianConvolve2D' :: Double -> [[Double]] -> [[Double]]
+gaussianConvolve2D' var xs = 
+    convolve2DZeroBoundary (sampleGaussian2D' var width height) $ xs where
+        width = length . head $ xs
+        height = length xs
+
+--deconvolve2D :: [[Double]] -> [Double] -> Either String [[Double]]
+deconvolve2D steps psf image = result where
     convoPSF = toConvolve2DZeroBoundary 0 psf 
     
     total = sum . concat $ image
     width = length . head $ image
+    height = length image
 
     normalizedImage  = normalize . concat $ image
     
     fromLinearImage = chunksOf width . map (total*)
     
     -- I think here I can 
-    result = case linear 0.00001 (LC convoPSF normalizedImage) of
-        Right x -> Right $ fromLinearImage $ S.toList x
-        Left x  -> Left $ show x
+    --result = case linear 0.01 (LC convoPSF normalizedImage) of
+    --    Right x -> Right $ fromLinearImage $ S.toList x
+    --    Left x  -> Left $ show x
+    
+    result = Right $ fromLinearImage $ toList $ 
+        update steps (fromLists convoPSF) (fromList normalizedImage) 
+    
+    --result = Right $ fromLinearImage $ A.toList $ 
+    --    runIdentity $ update' steps psf (fromListUnboxed (Z :. width :. height) normalizedImage) $
+    --        (delay $ fromListUnboxed (Z :. width :. height) $ replicate (width * height) 0)
+    
     
     --result = Right $ fromLinearImage $ last $ linear'' (LC convoPSF normalizedImage) :: Either String [[Double]]
 
 
 --testPSF :: (RealFloat a) 
 --       => [[a]]
-testPSF = gaussianPSF 0.5 5 5
+testPSF = gaussianPSF 0.25 5 5
 
 --          -> a -> Int -> Int -> [[a]]
 gsamples var width height = gaussianPSF var width height
@@ -92,12 +116,12 @@ testInput3 :: [[Double]]
 testInput3 = map (map (1.0-)) testInput2              
 
 testDecon :: Either String [[Double]]
-testDecon = deconvolve2D testPSF $ 
+testDecon = deconvolve2D 1000 testPSF
     (gaussianConvolve2D  0.25 testInput2)
 
 
 roundTrip :: Double -> [[Double]] -> Either String [[Double]]
-roundTrip var image = deconvolve2D (gsamples var width height) $ 
+roundTrip var image = deconvolve2D 1000 (gsamples var width height) $ 
     (gaussianConvolve2D var image) where
         width = length . head $ image
         height = length image
@@ -123,15 +147,16 @@ toPixel x = [x, x, x, 255]
 --TODO make an image that matches the one above
 --make increasingly larger examples until I can find the smallest ont
 --that exhibits the problem
-deconvolve' :: Double -> Image Pixel8 -> Image Pixel8
-deconvolve' var i@(Image width height dat) = result where
+deconvolve' :: Int -> Double -> Image Pixel8 -> Image Pixel8
+deconvolve' steps var i@(Image width height dat) = result where
     input = [[fromIntegral (pixelAt i w h) / 256.0 | 
         w <- [0..(width  - 1)]] | 
         h <- [0..(height - 1)]  ]
         
-    result = case deconvolve2D (gsamples var width height) input of
+        --
+    result = case deconvolve2D steps (gsamples var width height) input of
         Right z -> Image width height . VS.fromList $ concatMap (map toWord8) z 
-        Left x  -> error $ show x
+        Left x  -> error ""  --   $ show x
 
 -- The test that I should have, is
 -- open a file and blur it
@@ -142,22 +167,22 @@ blurImage var i@(Image width height dat) = result where
         w <- [0..(width  - 1)]] | 
         h <- [0..(height - 1)]  ]
         
-    blured = gaussianConvolve2D var input
+    blured = gaussianConvolve2D' var input
         
     result = Image width height $ VS.fromList $ reverse $ concatMap (map toWord8) $ transpose blured
 
-deconvolve :: Double -> FilePath -> IO ()
-deconvolve var filePath = do 
-    let outputPath = basename %~ (++ "_decon") $ filePath
+deconvolve :: Int -> Double -> FilePath -> Int -> IO ()
+deconvolve steps var filePath i = do 
+    let outputPath = basename %~ (++ "_decon" ++ show i) $ filePath
     pngBytes <- BS.readFile filePath 
     let image = either error id . decodePng $ pngBytes
         newImage = case image of
-            ImageY8 x -> deconvolve' var x
+            ImageY8 x -> deconvolve' steps var x
             x -> error $ "bad format"
     writePng outputPath newImage
  
-deconvolve2 :: Double -> FilePath -> IO ()
-deconvolve2 var filePath = do 
+deconvolve2 :: Int -> Double -> FilePath -> IO ()
+deconvolve2 steps var filePath = do 
     let outputPath = basename %~ (++ "_decon") $ filePath
         blurPath   = basename %~ (++ "_blur") $ filePath
     pngBytes <- BS.readFile filePath 
@@ -169,7 +194,7 @@ deconvolve2 var filePath = do
             let blurImaged = blurImage var x
             
             writePng blurPath blurImaged
-            return $ deconvolve' var blurImaged
+            return $ deconvolve' steps var blurImaged
         x -> error $ "bad format"
     writePng outputPath newImage
  
