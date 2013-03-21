@@ -71,12 +71,12 @@ deconvolve2D steps psf image = result where
     fromLinearImage = chunksOf width . map (total*)
     
     -- I think here I can 
-    --result = case linear 0.01 (LC convoPSF normalizedImage) of
-    --    Right x -> Right $ fromLinearImage $ S.toList x
-    --    Left x  -> Left $ show x
+    result = case linear 0.001 (LC convoPSF normalizedImage) of
+        Right x -> Right $ fromLinearImage $ S.toList x
+        Left x  -> Left $ show x
     
-    result = Right $ fromLinearImage $ toList $ 
-        update steps (fromLists convoPSF) (fromList normalizedImage) 
+    --result = Right $ fromLinearImage $ toList $ 
+    --    update steps (fromLists convoPSF) (fromList normalizedImage) 
     
     --result = Right $ fromLinearImage $ A.toList $ 
     --    runIdentity $ update' steps psf (fromListUnboxed (Z :. width :. height) normalizedImage) $
